@@ -76,10 +76,12 @@ removeNFromCoord n b c =
       state' = Set.delete n state
   in Map.insert c state' b
 
+isSingleN :: Int -> Coord -> Board -> Bool
+isSingleN n c b = b Map.! c == Set.singleton n
+
 clearOutUnitForN :: Int -> Board -> Unit -> Board
 clearOutUnitForN n b u =
-  let isSingleN coord = b Map.! coord == Set.singleton n
-      listOfSingles = Set.toList $ Set.filter isSingleN u
+  let listOfSingles = Set.toList $ Set.filter (\c -> isSingleN n c b) u
   in case listOfSingles of
        [c] -> let otherCoords = u `Set.difference` (Set.singleton c)
               in Set.foldl (removeNFromCoord n) b otherCoords
@@ -205,11 +207,38 @@ clearSeenForAllN b = foldl clearSeenForN b numberRange
 
 onePass :: Board -> Board
 onePass b =
-  clearOwnedCellForAllN $
+  clearOrthoNeighborsForAllSingletons $
+    clearOwnedCellForAllN $
     (doUntilStable clearSeenForAllN) $
     (doUntilStable clearOutAllUnitsForAllN) b
 
 doYourBest :: Board -> Board
 doYourBest b = doUntilStable onePass b
 
--- TODO: Adjacent-number elimination
+-- TODO: Adjacent-number elimination; that should place the first 3.
+-- TODO: Adjacent-number "sees" stuff.
+
+isLegalCoord :: Coord -> Bool
+isLegalCoord (Coord c r) = elem c coordRange && elem r coordRange
+
+orthoOffsets = [Offset 0 1, Offset 0 (-1), Offset 1 0, Offset (-1) 0]
+
+allLegalOrthoNeighbors :: Coord -> Set Coord
+allLegalOrthoNeighbors c =
+  Set.fromList $ filter isLegalCoord $ map (addOffset c) orthoOffsets
+
+clearOrthoNeighborsForSingleton :: Board -> Coord -> Board
+clearOrthoNeighborsForSingleton b c =
+  let cs = allLegalOrthoNeighbors c
+      n = Set.findMin $ b Map.! c
+      removeBoth board coord =
+        let lower = n - 1
+            upper = n + 1
+            board' = removeNFromCoord lower board coord
+        in removeNFromCoord upper board' coord
+  in Set.foldl removeBoth b cs
+
+clearOrthoNeighborsForAllSingletons :: Board -> Board
+clearOrthoNeighborsForAllSingletons b =
+  let allSingles = Set.filter (\c -> Set.size (b Map.! c) == 1) allCoords
+  in Set.foldl clearOrthoNeighborsForSingleton b allSingles
