@@ -10,41 +10,35 @@ import Data.List (partition)
 
 test :: IO ()
 test = do
-  putStrLn "Called test"
-  putStrLn $ show initialBoard
+  dumpBoard initialBoard
 
 data Coord = Coord { col :: Int, row :: Int } deriving (Show, Eq, Ord)
-type Board = Map Coord (Set Coord)
+type Board = Map Coord (Set Int)
 type Unit = Set Coord
 
 allPossibleCoordsFor :: Board -> Int -> Set Coord
-allPossibleCoordsFor b n =
-  let f coord possibilities output = if n `Set.member` possibilities
-                                     then output `Set.insert` coord
-                                     else output
-  in Map.foldlWithKey f Set.empty b
+allPossibleCoordsFor b n = allPossibleCoordsInUFor b allCoords n
 
 allPossibleCoordsInUFor :: Board -> Unit -> Int -> Set Coord
 allPossibleCoordsInUFor b u n =
-  let cs = allPossibleCoordsFor b n
-  in Set.filter (flip Set.member $ u) cs
+  Set.filter (\c -> n `Set.member` (b Map.! c)) u
 
 -- This is the inner part of the interior check.  If in a unit a number appears
 -- only in a single coord, then that coord can't hold anything but that number.
 clearSolvedInUnitForN :: Int -> Board -> Unit -> Board
 clearSolvedInUnitForN n b u =
   let cs = allPossibleCoordsInUFor b u n
-  in if size cs == 1
+  in if Set.size cs == 1
      then
        let [c] = Set.toList cs
        in Map.insert c (Set.singleton n) b
      else b
 
 clearSolvedForN :: Board -> Int -> Board
-clearSolvedForN b i = Set.foldl (clearSolvedInUnitForN n) b allUnits
+clearSolvedForN b n = Set.foldl (clearSolvedInUnitForN n) b allUnits
 
 clearSolved :: Board -> Board
-clearSolved b = foldl (clearSolvedForN b) [0..8]
+clearSolved b = foldl clearSolvedForN b [0..8]
 
 clearSolvedIfMoreThan :: Board -> Int -> Board
 clearSolvedIfMoreThan b count =
@@ -72,7 +66,7 @@ clearSolvedUntilStable b =
 
 countSolved :: Board -> Int
 countSolved b =
-  let solved = filter (\s -> size s == 1) (elems b)
+  let solved = filter (\s -> Set.size s == 1) (Map.elems b)
   in length solved
 
 allRows :: Set Unit
@@ -85,16 +79,17 @@ allBoxes = Set.empty -- TODO
 allUnits :: Set Unit
 allUnits = allRows `Set.union` allCols `Set.union` allBoxes
 
+allCoords = Set.fromList [Coord c r | c <- [0..8], r <- [0..8]]
+
 initialBoard :: Board
 initialBoard =
   let blank = Set.fromList [0..8]
-      allCoords = [Coord c r | c <- [0..8], r <- [0..8]]
-  in Map.fromList $ zip allCoords $ repeat blank
+  in Map.fromList $ zip (Set.toList allCoords) $ repeat blank
 
 -- TODO: Pretty board display
 dumpBoard :: Board -> IO ()
 dumpBoard b = do
-  let allCoords = [Coord c r | c <- [0..8], r <- [0..8]]
-      kvs = map (\c -> (show c) ++ ": " ++ (show b Map.! c) ++ "\n") allCoords
-  putStrLn kvs
+  let kvs = map (\c -> (show c) ++ ": " ++ (show $ b Map.! c))
+                (Set.toList allCoords)
+  mapM_ putStrLn kvs
   
