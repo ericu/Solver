@@ -6,8 +6,9 @@ import qualified Data.Set as Set
 import Data.Set (Set)
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
-import Data.List (partition, transpose, intercalate)
+import Data.List (partition, transpose, intercalate, intersperse)
 import Data.List.Split (chunksOf)
+import Debug.Trace (traceShow, trace)
 
 test :: IO ()
 test = do
@@ -112,21 +113,21 @@ dumpBoard b = do
   
 cellAsRows :: State -> [String]
 cellAsRows s =
-  let f n = if n `Set.member` s then show n ++ " " else "  "
-      allNums = concat [f n | n <- numberRange]
-  in chunksOf 6 allNums
+  let f n = if n `Set.member` s then show n else " "
+      allNums = [f n | n <- numberRange]
+  in map (intercalate " ") $ chunksOf 3 allNums
 
 boardAsRows :: Board -> [String]
 boardAsRows b =
   let f coord = cellAsRows $ b Map.! coord
       allCells = [f coord | coord <- allCoordsByRow]
       allCellRows = chunksOf 9 allCells
-      g row = map (intercalate "| ") (transpose row)
+      g row = map (intercalate " | ") (transpose row)
       allNumberRows = map g allCellRows
       lineLength = length $ head $ head allNumberRows
       -- TODO: Get this spacer to work.
-      spacer = take lineLength $ repeat "-"
-  in concat allNumberRows
+      spacer = concat $ take lineLength $ repeat "-"
+  in concat $ intersperse [spacer] allNumberRows
 
 dumpBoardAsRows :: Board -> IO ()
 dumpBoardAsRows b = do
