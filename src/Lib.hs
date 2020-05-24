@@ -94,13 +94,6 @@ clearOutAllUnitsForN b n = Set.foldl (clearOutUnitForN n) b allUnits
 clearOutAllUnitsForAllN :: Board -> Board
 clearOutAllUnitsForAllN b = foldl clearOutAllUnitsForN b numberRange
 
-{-
-countSolved :: Board -> Int
-countSolved b =
-  let solved = filter (\s -> Set.size s == 1) (Map.elems b)
-  in length solved
-  -}
-
 allRows :: Set Unit
 allRows = Set.fromList
             [ Set.fromList [ Coord c r | c <- coordRange]
@@ -177,16 +170,6 @@ sees c0 c1 =
   let off = getOffset c0 c1
   in isKingsMove off || isKnightsMove off ||
      row c0 == row c1 || col c0 == col c1
-{-
-Exterior check:
-  For each number N
-    For each unit U
-      let S = all the possible places in U that N can be
-      let L = all the locations NOT in U that N can be
-      -- So filter all sets that have N as possible, then partition into S,L.
-      clear N from $ filter (all S see) l
-
--}
 clearSeenForNFromUnit :: Int -> Board -> Unit -> Board
 clearSeenForNFromUnit n b u =
   let isNPossibleAtCoord c = Set.member n $ b Map.! c
@@ -215,8 +198,7 @@ onePass b =
 doYourBest :: Board -> Board
 doYourBest b = doUntilStable onePass b
 
--- TODO: Adjacent-number elimination; that should place the first 3.
--- TODO: Adjacent-number "sees" stuff.
+-- TODO: Adjacent-number "sees" stuff?
 
 isLegalCoord :: Coord -> Bool
 isLegalCoord (Coord c r) = elem c coordRange && elem r coordRange
