@@ -21,8 +21,7 @@ test = do
 --  dumpBoard $ clearOutAllUnitsForN initialBoard 3
 --  dumpBoard $ (clearSeenForAllN) $
 --              (clearOutAllUnitsForAllN) initialBoard
-  dumpBoard $ (doUntilStable clearSeenForAllN) $
-              (doUntilStable clearOutAllUnitsForAllN) initialBoard
+  dumpBoard $ doYourBest initialBoard
 
 data Offset = Offset { dc :: Int, dr :: Int } deriving (Show, Eq, Ord)
 data Coord = Coord { col :: Int, row :: Int } deriving (Show, Eq, Ord)
@@ -86,7 +85,6 @@ clearOutUnitForN n b u =
               in Set.foldl (removeNFromCoord n) b otherCoords
        a:b:c -> error "Unexpected Conflict"
        _ -> b
-       
 
 clearOutAllUnitsForN :: Board -> Int -> Board
 clearOutAllUnitsForN b n = Set.foldl (clearOutUnitForN n) b allUnits
@@ -195,8 +193,7 @@ clearSeenForNFromUnit n b u =
       nOutOfUnit = allNLocations `Set.difference` nInUnit
       seenFromAllInUnit c = all (sees c) nInUnit
       f board c = if seenFromAllInUnit c
-                  then traceShow (c, "taken out by unit", u) $
-                                 removeNFromCoord n board c
+                  then removeNFromCoord n board c
                   else board
   in foldl f b nOutOfUnit
 
@@ -205,5 +202,14 @@ clearSeenForN b n = Set.foldl (clearSeenForNFromUnit n) b allUnits
 
 clearSeenForAllN :: Board -> Board
 clearSeenForAllN b = foldl clearSeenForN b numberRange
+
+onePass :: Board -> Board
+onePass b =
+  clearOwnedCellForAllN $
+    (doUntilStable clearSeenForAllN) $
+    (doUntilStable clearOutAllUnitsForAllN) b
+
+doYourBest :: Board -> Board
+doYourBest b = doUntilStable onePass b
 
 -- TODO: Adjacent-number elimination
