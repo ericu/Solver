@@ -12,6 +12,7 @@ test :: IO ()
 test = do
   dumpBoard initialBoard
 
+data Offset = Offset { dc :: Int, dr :: Int } deriving (Show, Eq, Ord)
 data Coord = Coord { col :: Int, row :: Int } deriving (Show, Eq, Ord)
 type Board = Map Coord (Set Int)
 type Unit = Set Coord
@@ -81,10 +82,17 @@ allUnits = allRows `Set.union` allCols `Set.union` allBoxes
 
 allCoords = Set.fromList [Coord c r | c <- [0..8], r <- [0..8]]
 
-initialBoard :: Board
-initialBoard =
+blankBoard :: Board
+blankBoard =
   let blank = Set.fromList [0..8]
   in Map.fromList $ zip (Set.toList allCoords) $ repeat blank
+
+initialBoard :: Board
+initialBoard =
+  let b = blankBoard
+      b' = setValue (Coord 2 3) 3 b
+      b'' = setValue (Coord 4 2) 4 b'
+  in b''
 
 -- TODO: Pretty board display
 dumpBoard :: Board -> IO ()
@@ -93,3 +101,23 @@ dumpBoard b = do
                 (Set.toList allCoords)
   mapM_ putStrLn kvs
   
+setValue :: Coord -> Int -> Board -> Board
+setValue c n b =
+  Map.insert c (Set.singleton n) b
+
+isKingsMove :: Offset -> Bool
+isKingsMove (Offset dc dr) =
+  abs dc <= 1 && abs dr <= 1 && dc /= 0 || dr /= 0
+
+isKnightsMove :: Offset -> Bool
+isKnightsMove (Offset dc dr) =
+  (abs dc == 1 && abs dr == 2) || (abs dc == 2 && abs dr == 1)
+
+offset :: Coord -> Coord -> Offset
+offset (Coord c0 r0) (Coord c1 r1) = Offset (c1 - c0) (r1 - r0)
+
+sees :: Coord -> Coord -> Bool
+sees c0 c1 =
+  let off = offset c0 c1
+  in isKnightsMove off || isKingsMove off ||
+     row c0 == row c1 || col c0 == col c1

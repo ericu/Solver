@@ -59,18 +59,6 @@ King's moves [as deltas]:
 
 Rook's and box moves aren't deltas.
 
-Or, maybe simpler as Haskell:
-
-sees :: Coord -> Coord -> Boolean
-sees p0 p1 = isKnightsMove p0 p1 || isKingsMove p0 p1 ||
-             row p0 == row p1 || col p0 == col p1
-
-Make the board be a Set (col, row, Int); if there are multiple entries with
-the same col + row, they have different numbers, and are the current
-possibilities for that coord.
-
-Hmm...or Map (col, row) (Set Int), which is a bit cleaner.
-
 Start with a full board, then set the starting conditions by clearing out the
 coords of the given numbers.  Then do the 'can p0 see p1' to clear out all
 the basics for each solved one.
