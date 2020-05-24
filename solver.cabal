@@ -38,7 +38,7 @@ library
     , split
   default-language: Haskell2010
 
-executable solver-exe
+executable solver
   main-is: Main.hs
   other-modules:
       Paths_solver
