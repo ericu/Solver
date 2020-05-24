@@ -80,3 +80,8 @@ Exterior check:
       -- So filter all sets that have N as possible, then partition into S,L.
       clear N from $ filter (all S see) l
 
+In-Unit solved check:
+  For each number N
+    For each unit U
+      if there's a set that's singleton N
+      clear N from all other sets in U.
