@@ -1,0 +1,94 @@
+Easy marking:
+
+Units: rows, columns, boxes.
+Moves: row/col [rook], knight, king, box.
+
+* For each marked instance of the number, clear out all rows, columns, boxes,
+knight's moves, king's moves.  Clear also all adjacents for adjacent integers.
+
+The hard part:
+
+* If all possible locations for a number in a unit
+  can "see" a particular other square in another unit, then that other square
+  can be eliminated.
+
+  How to do it for a target number:
+
+    For each type of unit
+      For each instance of that unit
+        Locate all possibilities A for the number in that unit.
+        For all possibilities b for the number outside that unit
+          If all of A can see b
+            reject b
+
+  TODO: Does this include all the inferences we can make, using the adjacency
+  rule as well?  Not sure, but speculation should probably cover it.
+
+Easy recursion:
+
+* Speculating: choose a number for a square, and run all the above rules; if the
+  board contains a contradiction, then that possibility can be eliminated.
+
+Easy check.
+* Contradiction check: if a number cannot appear in a unit, or if
+  it appears twice in the unit, reject the configuration.  Probably don't even
+  need the "twice" check, if we speculate only within the realm of legality
+
+To generate all knight/king moves, iterate over the offsets, then check if
+they're in ([0, 8], [0, 8]).  To generate rows/cols, just set row/col to the
+number and iterate 0-8 on the other.  To generate box, use div/mod to get the
+top-left coord of the box, then add 0-2 to each coord.
+
+Knight's moves [as deltas]:
+  let moves = []
+  for (let one of [-1, 1]) {
+    for (let two of [-2, 2]) {
+      moves.push([one, two], [two, one])
+    }
+  }
+
+King's moves [as deltas]:
+  let moves = []
+  for (let dr of [-1, 0, 1]) {
+    for (let dc of [-1, 0, 1]) {
+      if (dr || dc) {
+        moves.push([dc, dr])
+      }
+    }
+  }
+
+Rook's and box moves aren't deltas.
+
+Or, maybe simpler as Haskell:
+
+sees :: Coord -> Coord -> Boolean
+sees p0 p1 = isKnightsMove p0 p1 || isKingsMove p0 p1 ||
+             row p0 == row p1 || col p0 == col p1
+
+Make the board be a Set (col, row, Int); if there are multiple entries with
+the same col + row, they have different numbers, and are the current
+possibilities for that coord.
+
+Hmm...or Map (col, row) (Set Int), which is a bit cleaner.
+
+Start with a full board, then set the starting conditions by clearing out the
+coords of the given numbers.  Then do the 'can p0 see p1' to clear out all
+the basics for each solved one.
+
+Interior check, to be iterated until nothing changes: -- Now called clearSolved.
+  For each number N
+    For each unit U
+      let S = all the possible places in U that N can be
+      if size S == 1
+        let c = head S
+         if size (board ! c) != 1
+            set board ! c to Set.singleton N
+
+Exterior check:
+  For each number N
+    For each unit U
+      let S = all the possible places in U that N can be
+      let L = all the locations NOT in U that N can be
+      -- So filter all sets that have N as possible, then partition into S,L.
+      clear N from $ filter (all S see) l
+
