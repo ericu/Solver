@@ -6,15 +6,19 @@ import qualified Data.Set as Set
 import Data.Set (Set)
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
-import Data.List (partition)
+import Data.List (partition, transpose, intercalate)
+import Data.List.Split (chunksOf)
 
 test :: IO ()
 test = do
-  dumpBoard initialBoard
+  dumpBoardAsRows initialBoard
 
 data Offset = Offset { dc :: Int, dr :: Int } deriving (Show, Eq, Ord)
 data Coord = Coord { col :: Int, row :: Int } deriving (Show, Eq, Ord)
-type Board = Map Coord (Set Int)
+type State = Set Int
+numberRange = [1..9]
+coordRange = [0..8]
+type Board = Map Coord State
 type Unit = Set Coord
 
 allPossibleCoordsFor :: Board -> Int -> Set Coord
@@ -39,7 +43,7 @@ clearSolvedForN :: Board -> Int -> Board
 clearSolvedForN b n = Set.foldl (clearSolvedInUnitForN n) b allUnits
 
 clearSolved :: Board -> Board
-clearSolved b = foldl clearSolvedForN b [0..8]
+clearSolved b = foldl clearSolvedForN b numberRange
 
 clearSolvedIfMoreThan :: Board -> Int -> Board
 clearSolvedIfMoreThan b count =
@@ -71,21 +75,26 @@ countSolved b =
   in length solved
 
 allRows :: Set Unit
-allRows = Set.fromList [Set.fromList [Coord c r | c <- [0..8]] | r <- [0..8]]
+allRows = Set.fromList
+            [ Set.fromList [ Coord c r | c <- coordRange]
+            | r <- coordRange ]
 allCols :: Set Unit
-allCols = Set.fromList [Set.fromList [Coord c r | r <- [0..8]] | c <- [0..8]]
+allCols = Set.fromList
+            [ Set.fromList [Coord c r | r <- coordRange]
+            | c <- coordRange ]
 allBoxes :: Set Unit
 allBoxes = Set.empty -- TODO
 
 allUnits :: Set Unit
 allUnits = allRows `Set.union` allCols `Set.union` allBoxes
 
-allCoords = Set.fromList [Coord c r | c <- [0..8], r <- [0..8]]
+allCoordsByRow = [Coord c r | r <- coordRange, c <- coordRange]
+allCoords = Set.fromList allCoordsByRow
 
 blankBoard :: Board
 blankBoard =
-  let blank = Set.fromList [0..8]
-  in Map.fromList $ zip (Set.toList allCoords) $ repeat blank
+  let blank = Set.fromList numberRange
+  in Map.fromList $ zip allCoordsByRow $ repeat blank
 
 initialBoard :: Board
 initialBoard =
@@ -98,9 +107,31 @@ initialBoard =
 dumpBoard :: Board -> IO ()
 dumpBoard b = do
   let kvs = map (\c -> (show c) ++ ": " ++ (show $ b Map.! c))
-                (Set.toList allCoords)
+                allCoordsByRow
   mapM_ putStrLn kvs
   
+cellAsRows :: State -> [String]
+cellAsRows s =
+  let f n = if n `Set.member` s then show n ++ " " else "  "
+      allNums = concat [f n | n <- numberRange]
+  in chunksOf 6 allNums
+
+boardAsRows :: Board -> [String]
+boardAsRows b =
+  let f coord = cellAsRows $ b Map.! coord
+      allCells = [f coord | coord <- allCoordsByRow]
+      allCellRows = chunksOf 9 allCells
+      g row = map (intercalate "| ") (transpose row)
+      allNumberRows = map g allCellRows
+      lineLength = length $ head $ head allNumberRows
+      -- TODO: Get this spacer to work.
+      spacer = take lineLength $ repeat "-"
+  in concat allNumberRows
+
+dumpBoardAsRows :: Board -> IO ()
+dumpBoardAsRows b = do
+  mapM_ putStrLn $ boardAsRows b
+
 setValue :: Coord -> Int -> Board -> Board
 setValue c n b =
   Map.insert c (Set.singleton n) b
