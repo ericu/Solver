@@ -13,6 +13,7 @@ import Debug.Trace (traceShow, trace)
 test :: IO ()
 test = do
   dumpBoard initialBoard
+  dumpBoard $ clearOutAllUnitsForAllN initialBoard
 
 data Offset = Offset { dc :: Int, dr :: Int } deriving (Show, Eq, Ord)
 data Coord = Coord { col :: Int, row :: Int } deriving (Show, Eq, Ord)
@@ -87,7 +88,7 @@ clearOutUnitForN n b u =
                   f board coord =
                     let state = board Map.! coord
                         state' = Set.delete n state
-                    in Map.insert c state' board
+                    in Map.insert coord state' board
               in Set.foldl f b otherCoords
        a:b:c -> error "Unexpected Conflict"
        _ -> b
@@ -153,6 +154,7 @@ boardAsRows b =
 dumpBoard :: Board -> IO ()
 dumpBoard b = do
   mapM_ putStrLn $ boardAsRows b
+  putStrLn ""
 
 setValue :: Coord -> Int -> Board -> Board
 setValue c n b =
