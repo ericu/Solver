@@ -12,7 +12,7 @@ import Debug.Trace (traceShow, trace)
 
 test :: IO ()
 test = do
-  dumpBoardAsRows initialBoard
+  dumpBoard initialBoard
 
 data Offset = Offset { dc :: Int, dr :: Int } deriving (Show, Eq, Ord)
 data Coord = Coord { col :: Int, row :: Int } deriving (Show, Eq, Ord)
@@ -104,13 +104,6 @@ initialBoard =
       b'' = setValue (Coord 4 2) 4 b'
   in b''
 
--- TODO: Pretty board display
-dumpBoard :: Board -> IO ()
-dumpBoard b = do
-  let kvs = map (\c -> (show c) ++ ": " ++ (show $ b Map.! c))
-                allCoordsByRow
-  mapM_ putStrLn kvs
-  
 cellAsRows :: State -> [String]
 cellAsRows s =
   let f n = if n `Set.member` s then show n else " "
@@ -125,12 +118,11 @@ boardAsRows b =
       g row = map (intercalate " | ") (transpose row)
       allNumberRows = map g allCellRows
       lineLength = length $ head $ head allNumberRows
-      -- TODO: Get this spacer to work.
       spacer = concat $ take lineLength $ repeat "-"
   in concat $ intersperse [spacer] allNumberRows
 
-dumpBoardAsRows :: Board -> IO ()
-dumpBoardAsRows b = do
+dumpBoard :: Board -> IO ()
+dumpBoard b = do
   mapM_ putStrLn $ boardAsRows b
 
 setValue :: Coord -> Int -> Board -> Board
