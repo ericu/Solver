@@ -12,7 +12,7 @@ import Debug.Trace (traceShow, trace)
 
 test :: IO ()
 test = do
-  dumpBoard initialBoard
+--  dumpBoard initialBoard
   dumpBoard $ clearOutAllUnitsForAllN initialBoard
 
 data Offset = Offset { dc :: Int, dr :: Int } deriving (Show, Eq, Ord)
@@ -114,7 +114,9 @@ allCols = Set.fromList
             [ Set.fromList [Coord c r | r <- coordRange]
             | c <- coordRange ]
 allBoxes :: Set Unit
-allBoxes = Set.empty -- TODO
+allBoxes = Set.fromList [
+             Set.fromList [Coord (c + dc) (r + dr) | c <- [0..2], r <- [0..2]]
+                           | dc <- [0, 3, 6], dr <- [0, 3, 6] ]
 
 allUnits :: Set Unit
 allUnits = allRows `Set.union` allCols `Set.union` allBoxes
@@ -168,11 +170,14 @@ isKnightsMove :: Offset -> Bool
 isKnightsMove (Offset dc dr) =
   (abs dc == 1 && abs dr == 2) || (abs dc == 2 && abs dr == 1)
 
-offset :: Coord -> Coord -> Offset
-offset (Coord c0 r0) (Coord c1 r1) = Offset (c1 - c0) (r1 - r0)
+getOffset :: Coord -> Coord -> Offset
+getOffset (Coord c0 r0) (Coord c1 r1) = Offset (c1 - c0) (r1 - r0)
+
+addOffset :: Coord -> Offset -> Coord
+addOffset (Coord c r) (Offset dc dr) = Coord (c + dc) (r + dr)
 
 sees :: Coord -> Coord -> Bool
 sees c0 c1 =
-  let off = offset c0 c1
+  let off = getOffset c0 c1
   in isKnightsMove off || isKingsMove off ||
      row c0 == row c1 || col c0 == col c1
