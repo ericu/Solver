@@ -6,7 +6,7 @@ import qualified Data.Set as Set
 import Data.Set (Set)
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
-import Data.List (partition, transpose, intercalate, intersperse)
+import Data.List (partition, transpose, intercalate, intersperse, any)
 import Data.List.Split (chunksOf)
 import Debug.Trace (traceShow, trace)
 
@@ -31,8 +31,8 @@ allPossibleCoordsInUFor b u n =
 
 -- This is the inner part of the interior check.  If in a unit a number appears
 -- only in a single coord, then that coord can't hold anything but that number.
-clearSolvedInUnitForN :: Int -> Board -> Unit -> Board
-clearSolvedInUnitForN n b u =
+clearOwnedCellInUnitForN :: Int -> Board -> Unit -> Board
+clearOwnedCellInUnitForN n b u =
   let cs = allPossibleCoordsInUFor b u n
   in if Set.size cs == 1
      then
@@ -40,35 +40,64 @@ clearSolvedInUnitForN n b u =
        in Map.insert c (Set.singleton n) b
      else b
 
-clearSolvedForN :: Board -> Int -> Board
-clearSolvedForN b n = Set.foldl (clearSolvedInUnitForN n) b allUnits
+clearOwnedCellForN :: Board -> Int -> Board
+clearOwnedCellForN b n = Set.foldl (clearOwnedCellInUnitForN n) b allUnits
 
-clearSolved :: Board -> Board
-clearSolved b = foldl clearSolvedForN b numberRange
+clearOwnedCellForAllN :: Board -> Board
+clearOwnedCellForAllN b = foldl clearOwnedCellForN b numberRange
 
-clearSolvedIfMoreThan :: Board -> Int -> Board
-clearSolvedIfMoreThan b count =
-  let b' = clearSolved b
+clearOwnedCellForAllNUntilStableHelper :: Board -> Int -> Board
+clearOwnedCellForAllNUntilStableHelper b count =
+  let b' = clearOwnedCellForAllN b
       count' = countSolved b'
   in if count' > count
-     then clearSolvedIfMoreThan b count'
+     then clearOwnedCellForAllNUntilStableHelper b count'
      else b
 
-clearSolvedUntilStable :: Board -> Board
-clearSolvedUntilStable b =
+clearOwnedCellForAllNUntilStable :: Board -> Board
+clearOwnedCellForAllNUntilStable b =
   let count = countSolved b
-  in clearSolvedIfMoreThan b count
+  in clearOwnedCellForAllNUntilStableHelper b count
 
 {-
-clearSolvedUntilStable :: Board -> Board
-clearSolvedUntilStable b =
+clearOwnedCellUntilStable :: Board -> Board
+clearOwnedCellUntilStable b =
   let initial = countSolved b
-      b' = clearSolved b
+      b' = clearOwnedCellForAllN b
       current = countSolved b'
   in if current > initial
-     then clearSolvedUntilStable b'
+     then clearOwnedCellUntilStable b'
      else b
  -}
+
+{-
+In-Unit solved check:
+  For each number N
+    For each unit U
+      if there's a set that's singleton N
+      clear N from all other sets in U.
+      -}
+
+clearOutUnitForN :: Int -> Board -> Unit -> Board
+clearOutUnitForN n b u =
+  let isSingleN coord = b Map.! coord == Set.singleton n
+      listOfSingles = Set.toList $ Set.filter isSingleN u
+  in case listOfSingles of
+       [c] -> let otherCoords = u `Set.difference` (Set.singleton c)
+                  f board coord =
+                    let state = board Map.! coord
+                        state' = Set.delete n state
+                    in Map.insert c state' board
+              in Set.foldl f b otherCoords
+       a:b:c -> error "Unexpected Conflict"
+       _ -> b
+       
+
+clearOutAllUnitsForN :: Board -> Int -> Board
+clearOutAllUnitsForN b n = Set.foldl (clearOutUnitForN n) b allUnits
+
+clearOutAllUnitsForAllN :: Board -> Board
+clearOutAllUnitsForAllN b = foldl clearOutAllUnitsForN b numberRange
 
 countSolved :: Board -> Int
 countSolved b =

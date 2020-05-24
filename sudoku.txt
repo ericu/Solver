@@ -63,7 +63,8 @@ Start with a full board, then set the starting conditions by clearing out the
 coords of the given numbers.  Then do the 'can p0 see p1' to clear out all
 the basics for each solved one.
 
-Interior check, to be iterated until nothing changes: -- Now called clearSolved.
+Interior check, to be iterated until nothing changes: -- Now called
+clearOwnedCell.
   For each number N
     For each unit U
       let S = all the possible places in U that N can be
