@@ -198,8 +198,6 @@ onePass b =
 doYourBest :: Board -> Board
 doYourBest b = doUntilStable onePass b
 
--- TODO: Adjacent-number "sees" stuff?
-
 isLegalCoord :: Coord -> Bool
 isLegalCoord (Coord c r) = elem c coordRange && elem r coordRange
 
@@ -224,3 +222,28 @@ clearOrthoNeighborsForAllSingletons :: Board -> Board
 clearOrthoNeighborsForAllSingletons b =
   let allSingles = Set.filter (\c -> Set.size (b Map.! c) == 1) allCoords
   in Set.foldl clearOrthoNeighborsForSingleton b allSingles
+
+{- TODO: Adjacent-number "sees" stuff.
+
+For example:
+
+    3 |       |
+ 4    | 4     |
+      |       |
+---------------
+    3 |
+      |
+      |
+-------
+
+If the 3 is in the top-left corner, it can see the 4 top-right, so that doesn't
+work.  Likewise the 4 there would see the 3 bottom-left.  The only option left
+is 4 top-right and 3 bottom-left.  How do we express that constraint so that
+it's computable?  It's kind of like the "sees" stuff, if we include that we
+"see" an item [and thus block it] if we're on the same square.  So if all the
+local options for a 3 are "seen" by a 4 in the top-left, that can't be 4, and
+vice-versa.  How to define "all the local options"?  Likely "all the
+possibilties in a given unit" as elsewhere, although there may be some
+cross-unit situations that we miss taking advantage of...not sure if that's
+possible.
+-}
