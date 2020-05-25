@@ -9,7 +9,8 @@ import Data.List.Split (chunksOf)
 import Debug.Trace (traceShow, trace)
 
 test :: IO ()
-test = dumpBoard $ doYourBest initialBoard
+test = dumpBoard $ doYourBest initialBoard1
+--test = dumpBoard $ doYourBest initialBoard2
 
 ----------------
 -- DATA TYPES --
@@ -69,8 +70,15 @@ setValue :: Coord -> Int -> Board -> Board
 setValue c n b =
   Map.insert c (Set.singleton n) b
 
-initialBoard :: Board
-initialBoard =
+initialBoard1 :: Board
+initialBoard1 =
+  let b = blankBoard
+      b' = setValue (Coord 2 4) 1 b
+      b'' = setValue (Coord 6 5) 2 b'
+  in b''
+
+initialBoard2 :: Board
+initialBoard2 =
   let b = blankBoard
       b' = setValue (Coord 2 3) 3 b
       b'' = setValue (Coord 4 2) 4 b'
@@ -202,6 +210,7 @@ sees c0 c1 =
   let off = getOffset c0 c1
   in isKingsMove off || isKnightsMove off ||
      row c0 == row c1 || col c0 == col c1
+
 clearSeenForNFromUnit :: Int -> Board -> Unit -> Board
 clearSeenForNFromUnit n b u =
   let isNPossibleAtCoord c = Set.member n $ b Map.! c
