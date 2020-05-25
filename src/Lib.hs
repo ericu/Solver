@@ -77,12 +77,10 @@ initialBoard =
   in b''
 
 countPossibilities :: Board -> Int
-countPossibilities b =
-  let addSet soFar s = soFar + Set.size s
-  in Map.foldl addSet 0 b
+countPossibilities b = sum $ map Set.size (Map.elems b)
 
-allPossibleCoordsInUFor :: Board -> Unit -> Int -> Set Coord
-allPossibleCoordsInUFor b u n =
+allPossibleCoordsInUForN :: Board -> Unit -> Int -> Set Coord
+allPossibleCoordsInUForN b u n =
   Set.filter (\c -> n `Set.member` (b Map.! c)) u
 
 removeNFromCoord :: Int -> Board -> Coord -> Board
@@ -162,7 +160,7 @@ dumpBoard b = do
 
 clearOwnedCellInUnitForN :: Int -> Board -> Unit -> Board
 clearOwnedCellInUnitForN n b u =
-  let cs = allPossibleCoordsInUFor b u n
+  let cs = allPossibleCoordsInUForN b u n
   in if Set.size cs == 1
      then
        let [c] = Set.toList cs
