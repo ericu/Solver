@@ -92,6 +92,16 @@ removeNFromCoord n b c =
 isSingleN :: Int -> Coord -> Board -> Bool
 isSingleN n c b = b Map.! c == Set.singleton n
 
+isSingleton :: Board -> Coord -> Bool
+isSingleton b c = Set.size (b Map.! c) == 1
+
+getSingleton :: Board -> Coord -> Int
+getSingleton b c =
+  let allSingles = Set.filter (isSingleton b) allCoords
+  in if isSingleton b c
+     then Set.findMin (b Map.! c)
+     else error "Not a singleton!"
+
 -- If in a unit a number appears only in a single coord, then that coord can't
 -- hold anything but that number.
 clearOwnedCellInUnitForN :: Int -> Board -> Unit -> Board
@@ -118,7 +128,11 @@ clearOutUnitForN n b u =
        _ -> b
 
 clearOutAllUnitsForAllN :: Board -> Board
-clearOutAllUnitsForAllN = forAllUnitsAndN clearOutUnitForN
+clearOutAllUnitsForAllN = doUntilStable $ forAllUnitsAndN clearOutUnitForN
+
+-- If all possibilities for a number in a unit can "see" a coord in
+-- another unit [via knight's move, king's move, or sudoku rules], then that
+-- coord isn't a possibility for that number.
 
 isKingsMove :: Offset -> Bool
 isKingsMove (Offset dc dr) =
@@ -133,10 +147,6 @@ getOffset (Coord c0 r0) (Coord c1 r1) = Offset (c1 - c0) (r1 - r0)
 
 addOffset :: Coord -> Offset -> Coord
 addOffset (Coord c r) (Offset dc dr) = Coord (c + dc) (r + dr)
-
--- If all possibilities for a number in a unit can "see" a coord in
--- another unit [via knight's move, king's move, or sudoku rules], then that
--- coord isn't a possibility for that number.
 
 sees :: Coord -> Coord -> Bool
 sees c0 c1 =
@@ -156,7 +166,7 @@ clearSeenForNFromUnit n b u =
   in foldl f b nOutOfUnit
 
 clearSeenForAllN :: Board -> Board
-clearSeenForAllN = forAllUnitsAndN clearSeenForNFromUnit
+clearSeenForAllN = doUntilStable $ forAllUnitsAndN clearSeenForNFromUnit
 
 -- Numbers can't be orthogonally next to adjacent integers [e.g. 4 can't be next
 -- to a 3 or a 5], regardless of unit.
@@ -173,17 +183,15 @@ allLegalOrthoNeighbors c =
 clearOrthoNeighborsForSingleton :: Board -> Coord -> Board
 clearOrthoNeighborsForSingleton b c =
   let cs = allLegalOrthoNeighbors c
-      n = Set.findMin $ b Map.! c
+      n = getSingleton b c
       removeBoth board coord =
-        let lower = n - 1
-            upper = n + 1
-            board' = removeNFromCoord lower board coord
-        in removeNFromCoord upper board' coord
+        let board' = removeNFromCoord (n - 1) board coord
+        in removeNFromCoord (n + 1) board' coord
   in Set.foldl removeBoth b cs
 
 clearOrthoNeighborsForAllSingletons :: Board -> Board
 clearOrthoNeighborsForAllSingletons b =
-  let allSingles = Set.filter (\c -> Set.size (b Map.! c) == 1) allCoords
+  let allSingles = Set.filter (isSingleton b) allCoords
   in Set.foldl clearOrthoNeighborsForSingleton b allSingles
 
 {- TODO: Adjacent-number "sees" stuff.
@@ -237,8 +245,8 @@ onePass :: Board -> Board
 onePass b =
   clearOrthoNeighborsForAllSingletons $
     clearOwnedCellForAllN $
-    (doUntilStable clearSeenForAllN) $
-    (doUntilStable clearOutAllUnitsForAllN) b
+    clearSeenForAllN $
+    clearOutAllUnitsForAllN b
 
 doUntilStable :: (Board -> Board) -> Board -> Board
 doUntilStable f b =
