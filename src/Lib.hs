@@ -1,6 +1,4 @@
-module Lib
-    ( test
-    ) where
+module Lib (test) where
 
 import qualified Data.Set as Set
 import Data.Set (Set)
@@ -10,34 +8,43 @@ import Data.List (partition, transpose, intercalate, intersperse, any, all)
 import Data.List.Split (chunksOf)
 import Debug.Trace (traceShow, trace)
 
-testBox = Set.fromList [ Coord (0 + c) (3 + r) | c <- [0, 1, 2], r <- [0, 1, 2] ]
-
 test :: IO ()
-test = do
---  dumpBoard initialBoard
---  dumpBoard $ clearSeenForNFromUnit 3 (clearOutAllUnitsForN initialBoard 3)
---                                    testBox
---  dumpBoard $ clearOutAllUnitsForN initialBoard 3
---  dumpBoard $ (clearSeenForAllN) $
---              (clearOutAllUnitsForAllN) initialBoard
-  dumpBoard $ doYourBest initialBoard
+test = dumpBoard $ doYourBest initialBoard
+
+----------------
+-- DATA TYPES --
+----------------
 
 data Offset = Offset { dc :: Int, dr :: Int } deriving (Show, Eq, Ord)
 data Coord = Coord { col :: Int, row :: Int } deriving (Show, Eq, Ord)
+
 type State = Set Int
-numberRange = [1..9]
-coordRange = [0..8]
 type Board = Map Coord State
 type Unit = Set Coord
+
+--------------------------------------------
+-- COORDINATES, VALUES, RANGES, AND UNITS --
+--------------------------------------------
+
+numberRange = [1..9]
+coordRange = [0..8]
+
+getOffset :: Coord -> Coord -> Offset
+getOffset (Coord c0 r0) (Coord c1 r1) = Offset (c1 - c0) (r1 - r0)
+
+addOffset :: Coord -> Offset -> Coord
+addOffset (Coord c r) (Offset dc dr) = Coord (c + dc) (r + dr)
 
 allRows :: Set Unit
 allRows = Set.fromList
             [ Set.fromList [ Coord c r | c <- coordRange]
-            | r <- coordRange ]
+              | r <- coordRange ]
+
 allCols :: Set Unit
 allCols = Set.fromList
             [ Set.fromList [Coord c r | r <- coordRange]
-            | c <- coordRange ]
+              | c <- coordRange ]
+
 allBoxes :: Set Unit
 allBoxes = Set.fromList [
              Set.fromList [Coord (c + dc) (r + dr) | c <- [0..2], r <- [0..2]]
@@ -49,14 +56,9 @@ allUnits = allRows `Set.union` allCols `Set.union` allBoxes
 allCoordsByRow = [Coord c r | r <- coordRange, c <- coordRange]
 allCoords = Set.fromList allCoordsByRow
 
-forAllN :: (Board -> Int -> Board) -> Board -> Board
-forAllN f b = foldl f b numberRange
-
-forAllUnits :: (Board -> Unit -> Board) -> Board -> Board
-forAllUnits f b = Set.foldl f b allUnits
-
-forAllUnitsAndN :: (Int -> Board -> Unit -> Board) -> Board -> Board
-forAllUnitsAndN f b = forAllN (\board n -> forAllUnits (f n) board) b
+---------------------------------------------
+-- BOARD SETUP, SETTERS, GETTERS, COUNTERS --
+---------------------------------------------
 
 blankBoard :: Board
 blankBoard =
@@ -89,9 +91,6 @@ removeNFromCoord n b c =
       state' = Set.delete n state
   in Map.insert c state' b
 
-isSingleN :: Int -> Coord -> Board -> Bool
-isSingleN n c b = b Map.! c == Set.singleton n
-
 isSingleton :: Board -> Coord -> Bool
 isSingleton b c = Set.size (b Map.! c) == 1
 
@@ -102,8 +101,65 @@ getSingleton b c =
      then Set.findMin (b Map.! c)
      else error "Not a singleton!"
 
+isSingleN :: Int -> Coord -> Board -> Bool
+isSingleN n c b = b Map.! c == Set.singleton n
+
+-----------------------------------
+-- HIGHER-LEVEL HELPER FUNCTIONS --
+-----------------------------------
+
+forAllN :: (Board -> Int -> Board) -> Board -> Board
+forAllN f b = foldl f b numberRange
+
+forAllUnits :: (Board -> Unit -> Board) -> Board -> Board
+forAllUnits f b = Set.foldl f b allUnits
+
+forAllUnitsAndN :: (Int -> Board -> Unit -> Board) -> Board -> Board
+forAllUnitsAndN f b = forAllN (\board n -> forAllUnits (f n) board) b
+
+doUntilStable :: (Board -> Board) -> Board -> Board
+doUntilStable f b =
+  let helper board count =
+        let board' = f board
+            count' = countPossibilities board'
+        in if count' < count
+           then helper board' count'
+           else board
+  in helper b $ countPossibilities b
+
+-------------------
+-- BOARD DISPLAY --
+-------------------
+
+cellAsRows :: State -> [String]
+cellAsRows s =
+  let f n = if n `Set.member` s then show n else " "
+      allNums = [f n | n <- numberRange]
+  in map (intercalate " ") $ chunksOf 3 allNums
+
+boardAsRows :: Board -> [String]
+boardAsRows b =
+  let f coord = cellAsRows $ b Map.! coord
+      allCells = [f coord | coord <- allCoordsByRow]
+      allCellRows = chunksOf 9 allCells
+      g row = map (intercalate " | ") (transpose row)
+      allNumberRows = map g allCellRows
+      lineLength = length $ head $ head allNumberRows
+      spacer = concat $ take lineLength $ repeat "-"
+  in concat $ intersperse [spacer] allNumberRows
+
+dumpBoard :: Board -> IO ()
+dumpBoard b = do
+  mapM_ putStrLn $ boardAsRows b
+  putStrLn ""
+
+------------------------
+-- SUDOKU CONSTRAINTS --
+------------------------
+
 -- If in a unit a number appears only in a single coord, then that coord can't
 -- hold anything but that number.
+
 clearOwnedCellInUnitForN :: Int -> Board -> Unit -> Board
 clearOwnedCellInUnitForN n b u =
   let cs = allPossibleCoordsInUFor b u n
@@ -116,16 +172,17 @@ clearOwnedCellInUnitForN n b u =
 clearOwnedCellForAllN :: Board -> Board
 clearOwnedCellForAllN = forAllUnitsAndN clearOwnedCellInUnitForN
 
--- If you've got a singleton for a number [i.e. that must be where that number
+-- If you've got a singleton at a coord [so that must be where that number
 -- is], then clear that number from all other coords in the unit.
+
 clearOutUnitForN :: Int -> Board -> Unit -> Board
 clearOutUnitForN n b u =
   let listOfSingles = Set.toList $ Set.filter (\c -> isSingleN n c b) u
   in case listOfSingles of
        [c] -> let otherCoords = u `Set.difference` (Set.singleton c)
               in Set.foldl (removeNFromCoord n) b otherCoords
-       a:b:c -> error "Unexpected Conflict"
-       _ -> b
+       [] -> b
+       _ -> error "Unexpected Conflict"
 
 clearOutAllUnitsForAllN :: Board -> Board
 clearOutAllUnitsForAllN = doUntilStable $ forAllUnitsAndN clearOutUnitForN
@@ -141,12 +198,6 @@ isKingsMove (Offset dc dr) =
 isKnightsMove :: Offset -> Bool
 isKnightsMove (Offset dc dr) =
   (abs dc == 1 && abs dr == 2) || (abs dc == 2 && abs dr == 1)
-
-getOffset :: Coord -> Coord -> Offset
-getOffset (Coord c0 r0) (Coord c1 r1) = Offset (c1 - c0) (r1 - r0)
-
-addOffset :: Coord -> Offset -> Coord
-addOffset (Coord c r) (Offset dc dr) = Coord (c + dc) (r + dr)
 
 sees :: Coord -> Coord -> Bool
 sees c0 c1 =
@@ -219,27 +270,9 @@ cross-unit situations that we miss taking advantage of...not sure if that's
 possible.
 -}
 
-cellAsRows :: State -> [String]
-cellAsRows s =
-  let f n = if n `Set.member` s then show n else " "
-      allNums = [f n | n <- numberRange]
-  in map (intercalate " ") $ chunksOf 3 allNums
-
-boardAsRows :: Board -> [String]
-boardAsRows b =
-  let f coord = cellAsRows $ b Map.! coord
-      allCells = [f coord | coord <- allCoordsByRow]
-      allCellRows = chunksOf 9 allCells
-      g row = map (intercalate " | ") (transpose row)
-      allNumberRows = map g allCellRows
-      lineLength = length $ head $ head allNumberRows
-      spacer = concat $ take lineLength $ repeat "-"
-  in concat $ intersperse [spacer] allNumberRows
-
-dumpBoard :: Board -> IO ()
-dumpBoard b = do
-  mapM_ putStrLn $ boardAsRows b
-  putStrLn ""
+----------------------------------
+-- HIGH-LEVEL SOLVING FUNCTIONS --
+----------------------------------
 
 onePass :: Board -> Board
 onePass b =
@@ -247,16 +280,6 @@ onePass b =
     clearOwnedCellForAllN $
     clearSeenForAllN $
     clearOutAllUnitsForAllN b
-
-doUntilStable :: (Board -> Board) -> Board -> Board
-doUntilStable f b =
-  let helper board count =
-        let board' = f board
-            count' = countPossibilities board'
-        in if count' < count
-           then helper board' count'
-           else board
-  in helper b $ countPossibilities b
 
 doYourBest :: Board -> Board
 doYourBest b = doUntilStable onePass b
